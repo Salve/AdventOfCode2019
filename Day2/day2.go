@@ -21,7 +21,7 @@ func main() {
 	copy(part1program, inputprogram)
 	part1program[1] = 12
 	part1program[2] = 2
-	fmt.Printf("Program utput: %v\n\n", runIntcode(part1program)[0])
+	fmt.Printf("Program output: %v\n\n", runIntcode(part1program)[0])
 
 	fmt.Println("-- Part 2:")
 	var verb, noun int
