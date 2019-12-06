@@ -23,23 +23,18 @@ func main() {
 	startingLoc := loc{0, 0}
 
 	fmt.Println("-- Part 1:")
-	fmt.Printf("Closest intersect: %d", findClosestIntersect(layouts, startingLoc))
+	fmt.Printf("Closest intersect: %d\n\n", closestIntersect(layouts, startingLoc))
+	fmt.Println("-- Part 2:")
+	fmt.Printf("Shortest intersect: %d steps\n\n", shortestIntersect(layouts, startingLoc))
 }
 
-func findClosestIntersect(wirelayouts [][]wireSegment, startingLoc loc) (minDistance int) {
-	// For each set of layouts/paths, generate a slice of locations visited
-	// use a map of locations to indicate how many wire layouts have visited each location
-	locVisits := make(map[loc]int)
-	for _, layout := range wirelayouts {
-		for loc := range locsForLayout(layout, startingLoc) {
-			locVisits[loc]++
-		}
-	}
+func closestIntersect(wirelayouts [][]wireSegment, startingLoc loc) (minDistance int) {
+	locVisits := visitedLocations(wirelayouts, startingLoc)
 
 	// for each location where wire layouts intersect, calculate distance to starting point
 	var intersects []int
 	for loc, v := range locVisits {
-		if v > 1 {
+		if len(v) > 1 {
 			intersects = append(intersects, manhattanDistance(startingLoc, loc))
 		}
 	}
@@ -54,8 +49,51 @@ func findClosestIntersect(wirelayouts [][]wireSegment, startingLoc loc) (minDist
 	return minDistance
 }
 
+func shortestIntersect(wirelayouts [][]wireSegment, startingLoc loc) (minSteps int) {
+	locVisits := visitedLocations(wirelayouts, startingLoc)
+
+	// for each location where wire layouts intersect, calculate sum of steps to get there
+	var intersects []int
+	for _, steps := range locVisits {
+		if len(steps) > 1 {
+			intersects = append(intersects, addArray(steps))
+		}
+	}
+
+	// find smallest sum of steps to an intersect
+	for i, sumsteps := range intersects {
+		if i == 0 || sumsteps < minSteps {
+			minSteps = sumsteps
+		}
+	}
+
+	return minSteps
+}
+
+func visitedLocations(wirelayouts [][]wireSegment, startingLoc loc) map[loc][]int {
+	// Given a set of wire paths/layouts, return a map of locations containing
+	// a slice with one element per wire which visited the location,
+	// with the value of the slice element being the number of steps that wire needed to get to the location
+
+	locVisits := make(map[loc][]int)
+	for _, layout := range wirelayouts {
+		for loc, steps := range locsForLayout(layout, startingLoc) {
+			locVisits[loc] = append(locVisits[loc], steps)
+		}
+	}
+
+	return locVisits
+}
+
 func manhattanDistance(locA loc, locB loc) int {
 	return abs(locA.x-locB.x) + abs(locA.y-locB.y)
+}
+
+func addArray(values []int) (sum int) {
+	for _, v := range values {
+		sum += v
+	}
+	return sum
 }
 
 func abs(x int) int {
@@ -65,13 +103,13 @@ func abs(x int) int {
 	return x
 }
 
-func locsForLayout(wirelayout []wireSegment, startingLoc loc) map[loc]struct{} {
-	// Returns a set of locations visited by a given set of wire paths.
-	// Using a map to avoid returning a location twice, as a wire's intersection with itself should not count
+func locsForLayout(wirelayout []wireSegment, startingLoc loc) map[loc]int {
+	// Returns a set of locations visited by a given set of wire paths, and the number of steps to get there
 
-	locs := make(map[loc]struct{})
+	locs := make(map[loc]int)
 	currentLoc := startingLoc
 	var movement loc
+	var step int
 	for _, segment := range wirelayout {
 		switch segment.direction {
 		case "U"[0]:
@@ -87,9 +125,12 @@ func locsForLayout(wirelayout []wireSegment, startingLoc loc) map[loc]struct{} {
 		}
 
 		for i := 0; i < segment.distance; i++ {
+			step++
 			currentLoc.x += movement.x
 			currentLoc.y += movement.y
-			locs[currentLoc] = struct{}{}
+			if _, exists := locs[currentLoc]; !exists {
+				locs[currentLoc] = step
+			}
 		}
 	}
 
