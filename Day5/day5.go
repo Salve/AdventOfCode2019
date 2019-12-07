@@ -13,6 +13,10 @@ const ADD int = 1
 const MULT int = 2
 const INPUT int = 3
 const OUTPUT int = 4
+const JMPTRUE int = 5
+const JMPFALSE int = 6
+const LESS int = 7
+const EQL int = 8
 const HALT int = 99
 
 const POS = 0 // parameter mode position
@@ -28,73 +32,97 @@ func main() {
 		fmt.Println(output)
 	}
 
+	fmt.Println("\n-- Part 2:")
+	part2program := make([]int, len(inputprogram))
+	copy(part2program, inputprogram)
+	for _, output := range runIntcode(part2program, 5) {
+		fmt.Println(output)
+	}
+
 }
 
 func runIntcode(program []int, input int) (output []int) {
 	loc := 0
 	for {
 		instruction := decodeInstruction(program[loc])
-		var params [4]int
 		switch instruction[0] {
 		case ADD:
-			for i := 1; i < 4; i++ {
-				switch instruction[i] {
-				case IMM:
-					params[i] = loc + i
-				case POS:
-					params[i] = program[loc+i]
-				default:
-					log.Fatalf("Undefined mode: %d", instruction[i])
-				}
-			}
+			params := getParams(program, instruction, loc, 4)
 			program[params[3]] = program[params[1]] + program[params[2]]
 			loc += 4
 
 		case MULT:
-			for i := 1; i < 4; i++ {
-				switch instruction[i] {
-				case IMM:
-					params[i] = loc + i
-				case POS:
-					params[i] = program[loc+i]
-				default:
-					log.Fatalf("Undefined mode: %d", instruction[i])
-				}
-			}
+			params := getParams(program, instruction, loc, 4)
 			program[params[3]] = program[params[1]] * program[params[2]]
 			loc += 4
 
 		case INPUT:
-			switch instruction[1] {
-			case IMM:
-				log.Fatalf("Invalid mode IMMEDIATE for INPUT operation at location: %d", loc)
-			case POS:
-				program[program[loc+1]] = input
-			default:
-				log.Fatalf("Undefined mode: %d", instruction[1])
-			}
+			params := getParams(program, instruction, loc, 2)
+			program[params[1]] = input
 			loc += 2
 
 		case OUTPUT:
-			switch instruction[1] {
-			case IMM:
-				output = append(output, program[loc+1])
-			case POS:
-				output = append(output, program[program[loc+1]])
-			default:
-				log.Fatalf("Undefined mode: %d", instruction[1])
-			}
+			params := getParams(program, instruction, loc, 2)
+			output = append(output, program[params[1]])
 			loc += 2
+
+		case JMPTRUE:
+			params := getParams(program, instruction, loc, 3)
+			if program[params[1]] != 0 {
+				loc = program[params[2]]
+			} else {
+				loc += 3
+			}
+
+		case JMPFALSE:
+			params := getParams(program, instruction, loc, 3)
+			if program[params[1]] == 0 {
+				loc = program[params[2]]
+			} else {
+				loc += 3
+			}
+
+		case LESS:
+			params := getParams(program, instruction, loc, 4)
+			if program[params[1]] < program[params[2]] {
+				program[params[3]] = 1
+			} else {
+				program[params[3]] = 0
+			}
+			loc += 4
+
+		case EQL:
+			params := getParams(program, instruction, loc, 4)
+			if program[params[1]] == program[params[2]] {
+				program[params[3]] = 1
+			} else {
+				program[params[3]] = 0
+			}
+			loc += 4
 
 		case HALT:
 			loc += 1
-			return
+			return output
 
 		default:
-			log.Fatalf("Unexpected opcode: %v", program[loc])
-
+			log.Printf("Unexpected opcode: %v", program[loc])
+			return []int{-1}
 		}
 	}
+}
+
+func getParams(program []int, instruction [4]int, loc int, num int) (params [4]int) {
+	for i := 1; i < num; i++ {
+		switch instruction[i] {
+		case IMM:
+			params[i] = loc + i
+		case POS:
+			params[i] = program[loc+i]
+		default:
+			log.Fatalf("Undefined mode: %d", instruction[i])
+		}
+	}
+	return params
 }
 
 func decodeInstruction(v int) (instruction [4]int) {
@@ -120,8 +148,11 @@ func readIntcode(filename string) []int {
 	}
 
 	var program []int
-	for _, value := range strings.Split(string(fc), ",") {
-		intvalue, _ := strconv.Atoi(value)
+	for _, value := range strings.Split(strings.TrimSpace(string(fc)), ",") {
+		intvalue, err := strconv.Atoi(value)
+		if err != nil {
+			log.Fatalf("Invalid integer in intcode: %v", err)
+		}
 		program = append(program, intvalue)
 	}
 	return program
