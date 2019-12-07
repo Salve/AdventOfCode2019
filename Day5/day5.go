@@ -24,11 +24,13 @@ func main() {
 	fmt.Println("-- Part 1:")
 	part1program := make([]int, len(inputprogram))
 	copy(part1program, inputprogram)
-	runIntcode(part1program)
+	for _, output := range runIntcode(part1program, 1) {
+		fmt.Println(output)
+	}
 
 }
 
-func runIntcode(program []int) []int {
+func runIntcode(program []int, input int) (output []int) {
 	loc := 0
 	for {
 		instruction := decodeInstruction(program[loc])
@@ -67,7 +69,7 @@ func runIntcode(program []int) []int {
 			case IMM:
 				log.Fatalf("Invalid mode IMMEDIATE for INPUT operation at location: %d", loc)
 			case POS:
-				program[program[loc+1]] = getInput()
+				program[program[loc+1]] = input
 			default:
 				log.Fatalf("Undefined mode: %d", instruction[1])
 			}
@@ -76,18 +78,17 @@ func runIntcode(program []int) []int {
 		case OUTPUT:
 			switch instruction[1] {
 			case IMM:
-				fmt.Printf("Loc: %d Out: %d\n", loc, program[loc+1])
+				output = append(output, program[loc+1])
 			case POS:
-				fmt.Printf("Loc: %d Out: %d\n", loc, program[program[loc+1]])
+				output = append(output, program[program[loc+1]])
 			default:
 				log.Fatalf("Undefined mode: %d", instruction[1])
 			}
 			loc += 2
 
 		case HALT:
-			println("HALT!")
 			loc += 1
-			return program
+			return
 
 		default:
 			log.Fatalf("Unexpected opcode: %v", program[loc])
@@ -104,10 +105,6 @@ func decodeInstruction(v int) (instruction [4]int) {
 		v = v / 10              // advance
 	}
 	return instruction
-}
-
-func getInput() int {
-	return 1
 }
 
 func readIntcode(filename string) []int {
