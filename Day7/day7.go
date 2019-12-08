@@ -9,26 +9,75 @@ import (
 	"strings"
 )
 
-const ADD int = 1
-const MULT int = 2
-const INPUT int = 3
-const OUTPUT int = 4
-const JMPTRUE int = 5
-const JMPFALSE int = 6
-const LESS int = 7
-const EQL int = 8
-const HALT int = 99
+const ( // intcode commands
+	ADD      int = 1
+	MULT     int = 2
+	INPUT    int = 3
+	OUTPUT   int = 4
+	JMPTRUE  int = 5
+	JMPFALSE int = 6
+	LESS     int = 7
+	EQL      int = 8
+	HALT     int = 99
+)
 
-const POS = 0 // parameter mode position
-const IMM = 1 // parameter mode immediate
+const ( // parameter modes
+	POS = 0
+	IMM = 1
+)
+
+type state int
+
+const (
+	INIT state = iota
+	RUNNING
+	WAITOUT
+	WAITIN
+	PAUSED
+	HALTED
+)
+
+type program struct {
+	intcode []int
+	loc     int
+	state   state
+	input   []int
+	output  int
+}
+
+func (p *program) copy() *program {
+	i2 := make([]int, len(p.intcode))
+	copy(i2, p.intcode)
+	p2 := program{
+		intcode: i2,
+		loc:     p.loc,
+		state:   p.state,
+		input:   p.input,
+		output:  p.output,
+	}
+	return &p2
+}
 
 func main() {
-	inputprogram := readIntcode("input")
+	inputprogram := program{
+		intcode: readIntcode("input"),
+		loc:     0,
+		state:   INIT,
+	}
 
 	fmt.Println("-- Part 1:")
 	max := 0
 	permute([]int{0, 1, 2, 3, 4}, func(p []int) {
-		if out := tryPhaseSequence(p, inputprogram); out > max {
+		if out := tryPhaseSequence(p, &inputprogram); out > max {
+			max = out
+		}
+	})
+	fmt.Printf("Max thruster signal achieved: %d\n\n", max)
+
+	fmt.Println("-- Part 2:")
+	max = 0
+	permute([]int{5, 6, 7, 8, 9}, func(p []int) {
+		if out := tryFeedbackSequence(p, &inputprogram); out > max {
 			max = out
 		}
 	})
@@ -36,86 +85,137 @@ func main() {
 
 }
 
-func tryPhaseSequence(seq []int, program []int) int {
+func tryPhaseSequence(seq []int, prg *program) int {
 	input := 0
 	for i := range seq {
-		p := make([]int, len(program))
-		copy(p, program)
-
-		input = runIntcode(p, []int{seq[i], input})[0]
+		p := prg.copy()
+		p.input = []int{seq[i], input}
+		for {
+			if p.state == HALTED {
+				break
+			} else if p.state == WAITOUT {
+				input = p.output
+			}
+			p.run()
+		}
 	}
 	return input
 }
 
-func runIntcode(program []int, input []int) (output []int) {
-	loc := 0
+func tryFeedbackSequence(seq []int, prg *program) int {
+	amps := [5]*program{}
+	for i := 0; i < 5; i++ {
+		amps[i] = prg.copy()
+		amps[i].input = []int{seq[i]} // set phase as first input
+	}
+
+	s := []int{0} // current signal value stack
+	i := 0        // currently running amp
 	for {
-		instruction := decodeInstruction(program[loc])
+		if i == 4 && amps[i].state == HALTED {
+			return s[0]
+		}
+		if amps[i].state == WAITIN {
+			amps[i].input = append(amps[i].input, s[0])
+			s = s[1:]
+		}
+		if amps[i].state == WAITOUT {
+			s = append([]int{amps[i].output}, s...) // push output to s
+			// run next amp
+			amps[i].state = PAUSED
+			if i == 4 {
+				i = 0
+			} else {
+				i++
+			}
+			continue
+		}
+		amps[i].run()
+		if amps[i].state == HALTED {
+			if i == 4 {
+				i = 0
+			} else {
+				i++
+			}
+			continue
+		}
+	}
+}
+
+func (p *program) run() {
+	p.state = RUNNING
+	for {
+		instruction := decodeInstruction(p.intcode[p.loc])
 		switch instruction[0] {
 		case ADD:
-			params := getParams(program, instruction, loc, 4)
-			program[params[3]] = program[params[1]] + program[params[2]]
-			loc += 4
+			params := getParams(p.intcode, instruction, p.loc, 4)
+			p.intcode[params[3]] = p.intcode[params[1]] + p.intcode[params[2]]
+			p.loc += 4
 
 		case MULT:
-			params := getParams(program, instruction, loc, 4)
-			program[params[3]] = program[params[1]] * program[params[2]]
-			loc += 4
+			params := getParams(p.intcode, instruction, p.loc, 4)
+			p.intcode[params[3]] = p.intcode[params[1]] * p.intcode[params[2]]
+			p.loc += 4
 
 		case INPUT:
-			params := getParams(program, instruction, loc, 2)
-			program[params[1]] = input[0]
-			if len(input) > 1 {
-				input = input[1:]
+			params := getParams(p.intcode, instruction, p.loc, 2)
+			if len(p.input) == 0 {
+				p.state = WAITIN
+				return
 			}
-			loc += 2
+			p.intcode[params[1]] = p.input[0]
+			if len(p.input) > 0 {
+				p.input = p.input[1:]
+			}
+			p.loc += 2
 
 		case OUTPUT:
-			params := getParams(program, instruction, loc, 2)
-			output = append(output, program[params[1]])
-			loc += 2
+			params := getParams(p.intcode, instruction, p.loc, 2)
+			p.output = p.intcode[params[1]]
+			p.state = WAITOUT
+			p.loc += 2
+			return
 
 		case JMPTRUE:
-			params := getParams(program, instruction, loc, 3)
-			if program[params[1]] != 0 {
-				loc = program[params[2]]
+			params := getParams(p.intcode, instruction, p.loc, 3)
+			if p.intcode[params[1]] != 0 {
+				p.loc = p.intcode[params[2]]
 			} else {
-				loc += 3
+				p.loc += 3
 			}
 
 		case JMPFALSE:
-			params := getParams(program, instruction, loc, 3)
-			if program[params[1]] == 0 {
-				loc = program[params[2]]
+			params := getParams(p.intcode, instruction, p.loc, 3)
+			if p.intcode[params[1]] == 0 {
+				p.loc = p.intcode[params[2]]
 			} else {
-				loc += 3
+				p.loc += 3
 			}
 
 		case LESS:
-			params := getParams(program, instruction, loc, 4)
-			if program[params[1]] < program[params[2]] {
-				program[params[3]] = 1
+			params := getParams(p.intcode, instruction, p.loc, 4)
+			if p.intcode[params[1]] < p.intcode[params[2]] {
+				p.intcode[params[3]] = 1
 			} else {
-				program[params[3]] = 0
+				p.intcode[params[3]] = 0
 			}
-			loc += 4
+			p.loc += 4
 
 		case EQL:
-			params := getParams(program, instruction, loc, 4)
-			if program[params[1]] == program[params[2]] {
-				program[params[3]] = 1
+			params := getParams(p.intcode, instruction, p.loc, 4)
+			if p.intcode[params[1]] == p.intcode[params[2]] {
+				p.intcode[params[3]] = 1
 			} else {
-				program[params[3]] = 0
+				p.intcode[params[3]] = 0
 			}
-			loc += 4
+			p.loc += 4
 
 		case HALT:
-			loc += 1
-			return output
+			p.state = HALTED
+			return
 
 		default:
-			log.Printf("Unexpected opcode: %v", program[loc])
-			return []int{-1}
+			log.Fatalf("Unexpected opcode: %v", p.intcode[p.loc])
 		}
 	}
 }
