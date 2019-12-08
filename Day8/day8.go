@@ -47,12 +47,32 @@ func (img *image) countLayers(search byte) []int {
 	return count
 }
 
+func (img *image) px(row int, column int) string {
+	for i := 0; i < len(img.layers); i++ {
+		switch img.layers[i][row][column] {
+		case 0:
+			return " "
+		case 1:
+			return "█"
+		}
+	}
+	return "░"
+}
+
 func main() {
 	fmt.Println("-- Part 1:")
 	img := image{width: 25, height: 6}
 	img.fromBytes(readBytes("input"))
 	layer := minSlice(img.countLayers(0))
 	fmt.Printf("Result: %d\n\n", img.countLayers(1)[layer]*img.countLayers(2)[layer])
+
+	fmt.Println("-- Part 2:")
+	for i := 0; i < img.height; i++ {
+		for j := 0; j < img.width; j++ {
+			fmt.Print(img.px(i, j))
+		}
+		fmt.Print("\n")
+	}
 
 }
 
