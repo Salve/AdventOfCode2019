@@ -62,23 +62,16 @@ func (p *program) copy() *program {
 }
 
 func main() {
-	/*inputprogram := program{
+	inputprogram := program{
 		intcode: readIntcode("input"),
 		loc:     0,
 		state:   INIT,
-	}*/
+	}
 
-	test1 := program{intcode: []int{109, 1, 204, -1, 1001, 100, 1, 100, 1008, 100, 16, 101, 1006, 101, 0, 99}}
-	//test2 := program{intcode: []int{1102,34915192,34915192,7,4,7,99,0},}
-	//test3 := program{intcode: []int{104,1125899906842624,99},}
-
-	fmt.Println("-- Tests:")
-	fmt.Printf("Test1: %#v\n", test1.copy().runInOut([]int{}))
-	//fmt.Printf("Test2: %#v\n", test2.copy().runInOut([]int{}))
-	//fmt.Printf("Test3: %#v\n", test3.copy().runInOut([]int{}))
-
-	//fmt.Println("\n\n-- Part 1:")
-	//fmt.Printf("BOOST keycode: %d", inputprogram.copy().runInOut([]int{0}))
+	fmt.Println("-- Part 1:")
+	fmt.Printf("BOOST keycode: %d\n\n", inputprogram.copy().runInOut([]int{1}))
+	fmt.Println("-- Part 2:")
+	fmt.Printf("BOOST keycode: %d\n\n", inputprogram.copy().runInOut([]int{2}))
 
 }
 
@@ -197,16 +190,9 @@ func getParams(p *program, instruction [4]int, num int) (params [4]int) {
 }
 
 func (p *program) checkLen(loc int) {
-	if loc > len(p.intcode) {
+	if loc >= len(p.intcode) {
 		p.intcode = append(p.intcode, make([]int, loc-len(p.intcode)+1)...)
 	}
-}
-
-func maxInt(a, b int) int {
-	if a >= b {
-		return a
-	}
-	return b
 }
 
 func decodeInstruction(v int) (instruction [4]int) {
