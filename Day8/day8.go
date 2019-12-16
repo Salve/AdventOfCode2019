@@ -51,9 +51,9 @@ func (img *image) px(row int, column int) string {
 	for i := 0; i < len(img.layers); i++ {
 		switch img.layers[i][row][column] {
 		case 0:
-			return " "
+			return "  "
 		case 1:
-			return "█"
+			return "██"
 		}
 	}
 	return "░"
