@@ -25,14 +25,16 @@ func runInOut(p []int, input int) (output []int) {
 	in := make(chan int, 1)
 	out := make(chan int)
 	halt := make(chan bool)
+	reqin := make(chan bool)
 
-	go intcode.Run(p, in, out, halt)
+	go intcode.Run(p, in, out, halt, reqin)
 
-	in <- input
 	for {
 		select {
 		case <-halt:
 			return output
+		case <-reqin:
+			in <- input
 		case o := <-out:
 			output = append(output, o)
 		}

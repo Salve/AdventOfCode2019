@@ -27,7 +27,7 @@ const ( // parameter modes
 	REL = 2
 )
 
-func Run(p []int, in <-chan int, out chan<- int, halted chan<- bool) {
+func Run(p []int, in <-chan int, out chan<- int, halted chan<- bool, reqin chan<- bool) {
 	loc := 0
 	rbase := 0
 
@@ -46,6 +46,10 @@ func Run(p []int, in <-chan int, out chan<- int, halted chan<- bool) {
 
 		case INPUT:
 			params := getParams(&p, loc, rbase, instruction, 2)
+			if cap(reqin) == 0 {
+				// If passed an unbuffered reqin channel, use it to sync with driver code and request input
+				reqin <- true
+			}
 			p[params[1]] = <-in
 			loc += 2
 
@@ -163,6 +167,6 @@ func FromFile(filename string) ([]int, error) {
 }
 
 func Copy(p []int) []int {
-	new := append([]int{}, p...)
-	return new
+	t := append([]int{}, p...)
+	return t
 }

@@ -39,9 +39,10 @@ func tryPhaseSequence(seq []int, prg []int) int {
 		in := make(chan int, 2)
 		out := make(chan int)
 		halt := make(chan bool)
+		reqin := make(chan bool, 1) // buffered, won't be used
 		halted := false
 
-		go intcode.Run(p, in, out, halt)
+		go intcode.Run(p, in, out, halt, reqin)
 
 		in <- seq[i]
 		in <- signal
@@ -74,12 +75,13 @@ func tryFeedbackSequence(seq []int, prg []int) (signal int) {
 	chEA := make(chan int)
 
 	halt := make(chan bool)
+	reqin := make(chan bool, 1) // buffered, won't be used
 
-	go intcode.Run(ampA, chEA, chAB, halt)
-	go intcode.Run(ampB, chAB, chBC, halt)
-	go intcode.Run(ampC, chBC, chCD, halt)
-	go intcode.Run(ampD, chCD, chDE, halt)
-	go intcode.Run(ampE, chDE, chEA, halt)
+	go intcode.Run(ampA, chEA, chAB, halt, reqin)
+	go intcode.Run(ampB, chAB, chBC, halt, reqin)
+	go intcode.Run(ampC, chBC, chCD, halt, reqin)
+	go intcode.Run(ampD, chCD, chDE, halt, reqin)
+	go intcode.Run(ampE, chDE, chEA, halt, reqin)
 
 	// set phase settings
 	chEA <- seq[0]

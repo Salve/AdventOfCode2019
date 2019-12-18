@@ -71,7 +71,7 @@ func (r *robot) turn(input int) {
 
 func (r *robot) limits() (xMin, xMax, yMin, yMax int) {
 	i := 0
-	for loc, _ := range r.paintlog {
+	for loc := range r.paintlog {
 		if loc.x < xMin || i == 0 {
 			xMin = loc.x
 		}
@@ -135,8 +135,9 @@ func (r *robot) run(p []int) {
 	in := make(chan int, 1)
 	out := make(chan int, 2)
 	halt := make(chan bool)
+	reqin := make(chan bool, 1) // buffered, won't be used
 
-	go intcode.Run(p, in, out, halt)
+	go intcode.Run(p, in, out, halt, reqin)
 
 	for {
 		select {
