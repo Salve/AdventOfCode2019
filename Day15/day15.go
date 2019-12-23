@@ -6,6 +6,14 @@ import (
 	"log"
 )
 
+var mov = map[int]loc{
+	1: loc{0, -1}, // North
+	2: loc{0, 1},  // South
+	3: loc{-1, 0}, // West
+	4: loc{1, 0},  // East
+}
+var inverse = map[int]int{1: 2, 2: 1, 3: 4, 4: 3}
+
 type loc struct {
 	x, y int
 }
@@ -64,20 +72,14 @@ func limits(m map[loc]int) (xMin, xMax, yMin, yMax int) {
 	return
 }
 
-func runDrone(p []int) {
+func runDrone(p []int) (map[loc]int, loc) {
 	in := make(chan int)
 	out := make(chan int)
 	halt := make(chan bool)
 	reqin := make(chan bool, 1)
 
-	mov := map[int]loc{
-		1: loc{0, -1}, // North
-		2: loc{0, 1},  // South
-		3: loc{-1, 0}, // West
-		4: loc{1, 0},  // East
-	}
-	inverse := map[int]int{1: 2, 2: 1, 3: 4, 4: 3}
 	maze := map[loc]int{loc{0, 0}: 1}
+	var oxygen loc
 	back := []int{}
 	pos := loc{0, 0}
 
@@ -85,6 +87,7 @@ func runDrone(p []int) {
 
 Loop:
 	for {
+		//printMaze(maze, pos)
 		for k, v := range mov {
 			next := pos.Add(v)
 			if _, exists := maze[next]; exists {
@@ -94,7 +97,8 @@ Loop:
 			o := <-out
 			maze[next] = o
 			if o == 2 {
-				fmt.Printf("Found oxygen at coords [%d, %d], %d moves from starting position.\n", next.x, next.y, len(back)+1)
+				oxygen = next
+				fmt.Printf("Found oxygen at coords [%d, %d], %d moves from starting position.\n\n", oxygen.x, oxygen.y, len(back)+1)
 			}
 			if o > 0 { // did not hit a wall, moved
 				back = append(back, inverse[k])
@@ -112,7 +116,8 @@ Loop:
 		pos = pos.Add(mov[back[len(back)-1]])
 		back = back[:len(back)-1]
 	}
-	printMaze(maze, pos)
+
+	return maze, oxygen
 }
 
 func main() {
@@ -120,6 +125,35 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to read intcode from file: %s\n", err)
 	}
-	runDrone(intcode.Copy(inputprogram))
 
+	fmt.Println("-- Part 1:")
+	maze, oxygen := runDrone(intcode.Copy(inputprogram))
+
+	fmt.Println("-- Part 2:")
+	queue := []loc{oxygen}
+	distance := map[loc]int{oxygen: 0}
+
+	for len(queue) > 0 {
+		pos := queue[0]
+		queue = queue[1:]
+		for _, v := range mov { // for each cardinal direction
+			next := pos.Add(v)
+			if _, exists := distance[next]; exists {
+				continue
+			}
+			if maze[next] > 0 {
+				distance[next] = distance[pos] + 1
+				queue = append(queue, next)
+			}
+		}
+	}
+
+	max := 0
+	for _, v := range distance {
+		if v > max {
+			max = v
+		}
+	}
+
+	fmt.Printf("Oxygen restored in all locations after %d minutes.\n\n", max)
 }
