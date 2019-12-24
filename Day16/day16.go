@@ -11,47 +11,34 @@ func main() {
 	input := readDigits("input")
 
 	fmt.Println("-- Part 1:")
-	p1 := patterns(len(input))
-	fmt.Printf("%v\n\n", fft(input, 100, p1))
+	fmt.Printf("%v\n\n", fft(input, 100)[:8])
 
 	fmt.Println("-- Part 2:")
 	i2 := multSlice(input, 10000)
-	p2 := patterns(len(i2))
-	fmt.Printf("%v\n\n", fft(i2, 100, p2))
+	offset := i2[:7]
+	fmt.Printf("%d\n%d\n", len(i2), offset)
+	//fmt.Printf("%v\n\n", fft(i2, 1))
+
 }
 
-func patterns(len int) [][]int {
-	pattern := []int{0, 1, 0, -1}
-	lines := make([][]int, len)
-	for i := 1; i <= len; i++ {
-		line := make([]int, len+i+1)
-		for j := 0; j*i <= len+1; j++ {
-			for k := 0; k < i; k++ {
-				line[j*i+k] = pattern[j%4]
-			}
-		}
-		lines[i-1] = line[1:]
-	}
-	return lines
-}
-
-func fft(in []int, phase int, p [][]int) []int {
+func fft(in []int, phase int) []int {
 	out := make([]int, len(in))
+	pattern := []int{0, 1, 0, -1}
 	for i, _ := range in {
 		sum := 0
 		for j, v := range in {
-			sum += v * p[i][j]
+			sum += v * pattern[(j+1)%(4*(i+1))/(i+1)]
 		}
 		out[i] = Abs(sum % 10)
 	}
 	if phase == 1 {
 		return out
 	}
-	return fft(out, phase-1, p)
+	return fft(out, phase-1)
 }
 
 func multSlice(s []int, x int) []int {
-	out := make([]int, len(s)*x)
+	out := []int{}
 	for i := 0; i < x; i++ {
 		out = append(out, s...)
 	}
